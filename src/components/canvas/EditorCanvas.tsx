@@ -1,26 +1,25 @@
 import { useRef, useCallback, useState } from 'react';
-import { Stage, Layer, Rect, Shape } from 'react-konva';
+import { Stage, Layer, Rect, Circle } from 'react-konva';
 import type Konva from 'konva';
 import { useSceneStore } from '../../store/sceneStore';
 import {
   SCREEN_WIDTH,
   SCREEN_HEIGHT,
-  DOME_RADIUS,
-  DOME_CENTER_X,
-  DOME_CENTER_Y,
+  SCREEN_RADIUS,
+  SCREEN_CENTER_X,
+  SCREEN_CENTER_Y,
+  clampWidgetToCircle,
+  isWidgetInsideDisplay,
 } from '../../constants/display';
 import { WidgetRenderer } from './WidgetRenderer';
 import { GridOverlay } from './GridOverlay';
 import { BoundaryGuard } from './BoundaryGuard';
 import { SelectionBox } from './SelectionBox';
 
-/** Konva clipFunc that traces the D-shape (flat bottom, dome top) */
-function dShapeClip(ctx: Konva.Context) {
+/** Konva clipFunc that traces a circle */
+function circleClip(ctx: Konva.Context) {
   ctx.beginPath();
-  ctx.moveTo(0, SCREEN_HEIGHT);
-  ctx.lineTo(0, DOME_CENTER_Y);
-  ctx.arc(DOME_CENTER_X, DOME_CENTER_Y, DOME_RADIUS, Math.PI, 0, false);
-  ctx.lineTo(SCREEN_WIDTH, SCREEN_HEIGHT);
+  ctx.arc(SCREEN_CENTER_X, SCREEN_CENTER_Y, SCREEN_RADIUS, 0, Math.PI * 2);
   ctx.closePath();
 }
 
@@ -29,6 +28,7 @@ export function EditorCanvas() {
   const selectedWidgetId = useSceneStore(s => s.selectedWidgetId);
   const backgroundColor = useSceneStore(s => s.backgroundColor);
   const showGrid = useSceneStore(s => s.showGrid);
+  const snapBack = useSceneStore(s => s.snapBack);
   const zoom = useSceneStore(s => s.zoom);
   const selectWidget = useSceneStore(s => s.selectWidget);
   const updateWidget = useSceneStore(s => s.updateWidget);
@@ -49,14 +49,36 @@ export function EditorCanvas() {
   }, [selectWidget]);
 
   const handleDragEnd = useCallback((widgetId: string, x: number, y: number) => {
-    updateWidget(widgetId, { x, y });
-  }, [updateWidget]);
-
-  const handleTransformEnd = useCallback((x: number, y: number, w: number, h: number) => {
-    if (selectedWidgetId) {
-      updateWidget(selectedWidgetId, { x, y, w, h });
+    if (snapBack) {
+      const widget = widgets.find(w => w.id === widgetId);
+      if (widget) {
+        const testWidget = { ...widget, x, y };
+        if (!isWidgetInsideDisplay(testWidget)) {
+          const clamped = clampWidgetToCircle(testWidget);
+          updateWidget(widgetId, { x: clamped.x, y: clamped.y });
+          return;
+        }
+      }
     }
-  }, [selectedWidgetId, updateWidget]);
+    updateWidget(widgetId, { x, y });
+  }, [updateWidget, snapBack, widgets]);
+
+  const handleTransformEnd = useCallback((x: number, y: number, w: number, h: number, rotation: number) => {
+    if (selectedWidgetId) {
+      if (snapBack) {
+        const widget = widgets.find(w => w.id === selectedWidgetId);
+        if (widget) {
+          const testWidget = { ...widget, x, y, w, h, rotation };
+          if (!isWidgetInsideDisplay(testWidget)) {
+            const clamped = clampWidgetToCircle(testWidget);
+            updateWidget(selectedWidgetId, { x: clamped.x, y: clamped.y, w, h, rotation });
+            return;
+          }
+        }
+      }
+      updateWidget(selectedWidgetId, { x, y, w, h, rotation });
+    }
+  }, [selectedWidgetId, updateWidget, snapBack, widgets]);
 
   const layer0Widgets = widgets.filter(w => w.layer === 0);
   const layer1Widgets = widgets.filter(w => w.layer === 1);
@@ -75,8 +97,8 @@ export function EditorCanvas() {
           height={SCREEN_HEIGHT}
           onClick={handleStageClick}
         >
-          {/* Background Layer — clipped to D-shape */}
-          <Layer clipFunc={dShapeClip}>
+          {/* Background Layer — clipped to circle */}
+          <Layer clipFunc={circleClip}>
             <Rect
               id="bg-rect"
               x={0}
@@ -88,8 +110,8 @@ export function EditorCanvas() {
             {showGrid && <GridOverlay />}
           </Layer>
 
-          {/* Layer 0 - Background widgets — clipped to D-shape */}
-          <Layer clipFunc={dShapeClip}>
+          {/* Layer 0 - Background widgets — clipped to circle */}
+          <Layer clipFunc={circleClip}>
             {layer0Widgets.map(widget => (
               <WidgetRenderer
                 key={widget.id}
@@ -105,8 +127,8 @@ export function EditorCanvas() {
             ))}
           </Layer>
 
-          {/* Layer 1 - Foreground widgets — clipped to D-shape */}
-          <Layer clipFunc={dShapeClip}>
+          {/* Layer 1 - Foreground widgets — clipped to circle */}
+          <Layer clipFunc={circleClip}>
             {layer1Widgets.map(widget => (
               <WidgetRenderer
                 key={widget.id}
@@ -122,7 +144,7 @@ export function EditorCanvas() {
             ))}
           </Layer>
 
-          {/* Overlay layer for boundary warnings, selection, and D-shape outline */}
+          {/* Overlay layer for boundary warnings, selection, and circle outline */}
           <Layer>
             {widgets.map(w => (
               <BoundaryGuard key={`bound-${w.id}`} widget={w} />
@@ -131,17 +153,11 @@ export function EditorCanvas() {
               selectedNode={selectedNode}
               onTransformEnd={handleTransformEnd}
             />
-            {/* D-shape outline */}
-            <Shape
-              sceneFunc={(ctx, shape) => {
-                ctx.beginPath();
-                ctx.moveTo(0, SCREEN_HEIGHT);
-                ctx.lineTo(0, DOME_CENTER_Y);
-                ctx.arc(DOME_CENTER_X, DOME_CENTER_Y, DOME_RADIUS, Math.PI, 0, false);
-                ctx.lineTo(SCREEN_WIDTH, SCREEN_HEIGHT);
-                ctx.closePath();
-                ctx.fillStrokeShape(shape);
-              }}
+            {/* Circle outline */}
+            <Circle
+              x={SCREEN_CENTER_X}
+              y={SCREEN_CENTER_Y}
+              radius={SCREEN_RADIUS}
               stroke="#555"
               strokeWidth={2}
               listening={false}

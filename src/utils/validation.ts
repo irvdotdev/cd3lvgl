@@ -1,5 +1,5 @@
 import type { Widget, Scene } from '../types/widget';
-import { MAX_TEXT_BYTES, MAX_PATH_LENGTH, isRectInsideDShape } from '../constants/display';
+import { MAX_TEXT_BYTES, MAX_PATH_LENGTH, isWidgetInsideDisplay } from '../constants/display';
 
 export type Severity = 'error' | 'warning';
 
@@ -18,8 +18,8 @@ export function validateWidget(widget: Widget, allWidgets: Widget[]): Validation
   const issues: ValidationIssue[] = [];
 
   // Check D-shape bounds
-  if (!isRectInsideDShape(widget.x, widget.y, widget.w, widget.h)) {
-    issues.push({ widgetId: widget.id, field: 'bounds', message: 'Widget extends outside D-shaped display boundary', severity: 'warning' });
+  if (!isWidgetInsideDisplay(widget)) {
+    issues.push({ widgetId: widget.id, field: 'bounds', message: 'Widget extends outside circular display boundary', severity: 'warning' });
   }
 
   // Check layer

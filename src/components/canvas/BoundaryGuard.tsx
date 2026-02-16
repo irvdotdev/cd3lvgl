@@ -1,23 +1,28 @@
-import { Rect } from 'react-konva';
+import { Line } from 'react-konva';
 import type { Widget } from '../../types/widget';
-import { isRectInsideDShape } from '../../constants/display';
+import { getWidgetCorners, widgetDistanceToEdge } from '../../constants/display';
 
 interface Props {
   widget: Widget;
 }
 
 export function BoundaryGuard({ widget }: Props) {
-  const outOfBounds = !isRectInsideDShape(widget.x, widget.y, widget.w, widget.h);
+  const margin = widgetDistanceToEdge(widget);
 
-  if (!outOfBounds) return null;
+  // Inside and not near edge — nothing to show
+  if (margin > 15) return null;
+
+  const corners = getWidgetCorners(widget);
+  const points = corners.flatMap(c => [c.x, c.y]);
+
+  // Red when outside, yellow when near edge
+  const stroke = margin < 0 ? '#ff4444' : '#ffaa00';
 
   return (
-    <Rect
-      x={widget.x}
-      y={widget.y}
-      width={widget.w}
-      height={widget.h}
-      stroke="#ff4444"
+    <Line
+      points={points}
+      closed
+      stroke={stroke}
       strokeWidth={2}
       dash={[4, 4]}
       listening={false}

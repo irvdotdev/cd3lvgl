@@ -9,6 +9,7 @@ interface SceneState {
   backgroundColor: string;
   showGrid: boolean;
   showSimulator: boolean;
+  snapBack: boolean;
   zoom: number;
 
   // History
@@ -26,6 +27,7 @@ interface SceneState {
 
   toggleGrid: () => void;
   toggleSimulator: () => void;
+  toggleSnapBack: () => void;
   setZoom: (zoom: number) => void;
 
   undo: () => void;
@@ -39,6 +41,7 @@ export const useSceneStore = create<SceneState>((set, get) => ({
   backgroundColor: '#000000',
   showGrid: false,
   showSimulator: false,
+  snapBack: false,
   zoom: 1,
 
   history: [{ widgets: [], backgroundColor: '#000000' }],
@@ -96,6 +99,7 @@ export const useSceneStore = create<SceneState>((set, get) => ({
 
   toggleGrid: () => set(s => ({ showGrid: !s.showGrid })),
   toggleSimulator: () => set(s => ({ showSimulator: !s.showSimulator })),
+  toggleSnapBack: () => set(s => ({ snapBack: !s.snapBack })),
   setZoom: (zoom) => set({ zoom: Math.max(0.25, Math.min(4, zoom)) }),
 
   pushHistory: () => {

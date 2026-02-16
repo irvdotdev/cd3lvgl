@@ -16,6 +16,8 @@ export function Toolbar() {
   const showGrid = useSceneStore(s => s.showGrid);
   const toggleSimulator = useSceneStore(s => s.toggleSimulator);
   const showSimulator = useSceneStore(s => s.showSimulator);
+  const snapBack = useSceneStore(s => s.snapBack);
+  const toggleSnapBack = useSceneStore(s => s.toggleSnapBack);
   const zoom = useSceneStore(s => s.zoom);
   const setZoom = useSceneStore(s => s.setZoom);
   const undo = useSceneStore(s => s.undo);
@@ -23,21 +25,40 @@ export function Toolbar() {
 
   const importInputRef = useRef<HTMLInputElement>(null);
 
+  const baseDefaults = {
+    layer: 1 as const,
+    clickable: false,
+    visible: true,
+    opacity: 255,
+    borderWidth: 0,
+    borderColor: '#ffffff',
+    borderRadius: 0,
+    bgColor: '#000000',
+    bgEnabled: false,
+    padding: 0,
+    rotation: 0,
+  };
+
   const addTextWidget = () => {
     const widget: TextWidget = {
       id: crypto.randomUUID(),
       type: 'text',
-      layer: 1,
-      x: 10,
-      y: 10,
-      w: 150,
+      ...baseDefaults,
+      x: 75,
+      y: 150,
+      w: 200,
       h: 40,
-      clickable: false,
-      visible: true,
       content: 'Hello',
       fontSize: 16,
       fontColor: '#ffffff',
-      align: 'left',
+      align: 'center',
+      verticalAlign: 'middle',
+      fontFamily: 'sans-serif',
+      fontWeight: 'normal',
+      letterSpacing: 0,
+      lineSpacing: 0,
+      textDecoration: 'none',
+      longMode: 'wrap',
     };
     addWidget(widget);
   };
@@ -46,15 +67,17 @@ export function Toolbar() {
     const widget: ImageWidget = {
       id: crypto.randomUUID(),
       type: 'image',
-      layer: 1,
-      x: 10,
-      y: 10,
+      ...baseDefaults,
+      x: 125,
+      y: 125,
       w: 100,
       h: 100,
-      clickable: false,
-      visible: true,
       assetId: '',
       imagePath: '',
+      pivotX: 0.5,
+      pivotY: 0.5,
+      zoom: 256,
+      antialias: true,
     };
     addWidget(widget);
   };
@@ -63,21 +86,37 @@ export function Toolbar() {
     const widget: GaugeWidget = {
       id: crypto.randomUUID(),
       type: 'gauge',
-      layer: 1,
-      x: 50,
-      y: 50,
+      ...baseDefaults,
+      x: 115,
+      y: 115,
       w: 120,
       h: 120,
-      clickable: false,
-      visible: true,
       minValue: 0,
       maxValue: 100,
       currentValue: 50,
       startAngle: -135,
       endAngle: 135,
-      needleColor: '#ff0000',
+      showArc: true,
       arcColor: '#00aaff',
       arcBgColor: '#333333',
+      arcWidth: 12,
+      arcRounded: false,
+      showNeedle: true,
+      needleColor: '#ff0000',
+      needleWidth: 2,
+      needleLength: 85,
+      showNeedleDot: true,
+      needleDotRadius: 4,
+      showTicks: false,
+      tickCount: 11,
+      tickLength: 8,
+      tickWidth: 1,
+      tickColor: '#ffffff',
+      showLabels: false,
+      labelCount: 5,
+      labelFontSize: 10,
+      labelColor: '#ffffff',
+      labelOffset: 15,
     };
     addWidget(widget);
   };
@@ -148,6 +187,11 @@ export function Toolbar() {
       {/* Toggle Simulator */}
       <button className={showSimulator ? activeBtnClass : btnClass} onClick={toggleSimulator}>
         Simulator
+      </button>
+
+      {/* Toggle Snap Back */}
+      <button className={snapBack ? activeBtnClass : btnClass} onClick={toggleSnapBack}>
+        Snap Back
       </button>
 
       <div className="h-4 w-px bg-gray-600" />
