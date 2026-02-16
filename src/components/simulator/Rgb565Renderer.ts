@@ -1,5 +1,5 @@
 import { rgbToRgb565, rgb565ToRgb, isChromaKey } from '../../utils/rgb565';
-import { SCREEN_WIDTH, SCREEN_HEIGHT, isInsideDShape } from '../../constants/display';
+import { SCREEN_WIDTH, SCREEN_HEIGHT, isInsideDisplay } from '../../constants/display';
 
 export function renderSceneToRgb565(
   sourceCanvas: HTMLCanvasElement,
@@ -31,7 +31,7 @@ export function renderSceneToRgb565(
     const py = Math.floor(i / 4 / SCREEN_WIDTH);
 
     // Outside D-shape: transparent
-    if (!isInsideDShape(px, py)) {
+    if (!isInsideDisplay(px, py)) {
       targetData.data[i] = 0;
       targetData.data[i + 1] = 0;
       targetData.data[i + 2] = 0;

@@ -12,18 +12,36 @@ function drawWidgets(
 ) {
   for (const widget of widgets) {
     if (!widget.visible) continue;
+    ctx.save();
+    ctx.globalAlpha = widget.opacity / 255;
+
+    // Apply rotation around widget center
+    if (widget.rotation) {
+      const centerX = widget.x + widget.w / 2;
+      const centerY = widget.y + widget.h / 2;
+      ctx.translate(centerX, centerY);
+      ctx.rotate(widget.rotation * Math.PI / 180);
+      ctx.translate(-centerX, -centerY);
+    }
 
     if (widget.type === 'text') {
+      const weight = widget.fontWeight === 'bold' ? 'bold ' : '';
       ctx.fillStyle = widget.fontColor;
-      ctx.font = `${widget.fontSize}px sans-serif`;
+      ctx.font = `${weight}${widget.fontSize}px ${widget.fontFamily}`;
       ctx.textAlign = widget.align as CanvasTextAlign;
-      ctx.textBaseline = 'middle';
+      ctx.textBaseline = widget.verticalAlign === 'top' ? 'top'
+        : widget.verticalAlign === 'bottom' ? 'bottom' : 'middle';
       const textX = widget.align === 'center'
         ? widget.x + widget.w / 2
         : widget.align === 'right'
           ? widget.x + widget.w
           : widget.x;
-      ctx.fillText(widget.content || 'Text', textX, widget.y + widget.h / 2, widget.w);
+      const textY = widget.verticalAlign === 'top'
+        ? widget.y
+        : widget.verticalAlign === 'bottom'
+          ? widget.y + widget.h
+          : widget.y + widget.h / 2;
+      ctx.fillText(widget.content || 'Text', textX, textY, widget.w);
     }
 
     if (widget.type === 'image') {
@@ -41,44 +59,66 @@ function drawWidgets(
     if (widget.type === 'gauge') {
       const cx = widget.x + widget.w / 2;
       const cy = widget.y + widget.h / 2;
-      const radius = Math.min(widget.w, widget.h) / 2 - 4;
-      const innerRadius = radius * 0.7;
+      const outerRadius = Math.min(widget.w, widget.h) / 2 - 4;
+      const innerRadius = Math.max(0, outerRadius - widget.arcWidth);
       const range = widget.maxValue - widget.minValue;
       const ratio = range > 0 ? (widget.currentValue - widget.minValue) / range : 0;
       const startRad = (widget.startAngle * Math.PI) / 180;
       const endRad = (widget.endAngle * Math.PI) / 180;
       const valueRad = startRad + ratio * (endRad - startRad);
 
-      // Background arc
-      ctx.beginPath();
-      ctx.arc(cx, cy, radius, startRad, endRad);
-      ctx.arc(cx, cy, innerRadius, endRad, startRad, true);
-      ctx.closePath();
-      ctx.fillStyle = widget.arcBgColor;
-      ctx.fill();
+      if (widget.showArc) {
+        // Background arc
+        ctx.beginPath();
+        ctx.arc(cx, cy, outerRadius, startRad, endRad);
+        ctx.arc(cx, cy, innerRadius, endRad, startRad, true);
+        ctx.closePath();
+        ctx.fillStyle = widget.arcBgColor;
+        ctx.fill();
 
-      // Value arc
-      ctx.beginPath();
-      ctx.arc(cx, cy, radius, startRad, valueRad);
-      ctx.arc(cx, cy, innerRadius, valueRad, startRad, true);
-      ctx.closePath();
-      ctx.fillStyle = widget.arcColor;
-      ctx.fill();
+        // Value arc
+        ctx.beginPath();
+        ctx.arc(cx, cy, outerRadius, startRad, valueRad);
+        ctx.arc(cx, cy, innerRadius, valueRad, startRad, true);
+        ctx.closePath();
+        ctx.fillStyle = widget.arcColor;
+        ctx.fill();
+      }
 
-      // Needle
-      ctx.beginPath();
-      ctx.moveTo(cx, cy);
-      ctx.lineTo(cx + Math.cos(valueRad) * radius * 0.85, cy + Math.sin(valueRad) * radius * 0.85);
-      ctx.strokeStyle = widget.needleColor;
-      ctx.lineWidth = 2;
-      ctx.stroke();
+      // Ticks
+      if (widget.showTicks) {
+        const angleRange = widget.endAngle - widget.startAngle;
+        for (let i = 0; i < widget.tickCount; i++) {
+          const t = widget.tickCount > 1 ? i / (widget.tickCount - 1) : 0;
+          const a = (widget.startAngle + t * angleRange) * Math.PI / 180;
+          ctx.beginPath();
+          ctx.moveTo(cx + Math.cos(a) * (outerRadius + 2), cy + Math.sin(a) * (outerRadius + 2));
+          ctx.lineTo(cx + Math.cos(a) * (outerRadius + 2 + widget.tickLength), cy + Math.sin(a) * (outerRadius + 2 + widget.tickLength));
+          ctx.strokeStyle = widget.tickColor;
+          ctx.lineWidth = widget.tickWidth;
+          ctx.stroke();
+        }
+      }
 
-      // Center dot
-      ctx.beginPath();
-      ctx.arc(cx, cy, 4, 0, Math.PI * 2);
-      ctx.fillStyle = widget.needleColor;
-      ctx.fill();
+      if (widget.showNeedle) {
+        const needleLen = outerRadius * (widget.needleLength / 100);
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.lineTo(cx + Math.cos(valueRad) * needleLen, cy + Math.sin(valueRad) * needleLen);
+        ctx.strokeStyle = widget.needleColor;
+        ctx.lineWidth = widget.needleWidth;
+        ctx.stroke();
+
+        if (widget.showNeedleDot) {
+          ctx.beginPath();
+          ctx.arc(cx, cy, widget.needleDotRadius, 0, Math.PI * 2);
+          ctx.fillStyle = widget.needleColor;
+          ctx.fill();
+        }
+      }
     }
+
+    ctx.restore();
   }
 }
 
@@ -92,7 +132,6 @@ export function SimulatorView() {
     const targetCanvas = canvasRef.current;
     if (!targetCanvas) return;
 
-    // Pre-load all image assets
     const imageWidgets = widgets.filter(w => w.type === 'image' && w.visible);
     const imagesToLoad: Promise<[string, HTMLImageElement]>[] = [];
 
@@ -105,7 +144,7 @@ export function SimulatorView() {
         new Promise<[string, HTMLImageElement]>((resolve) => {
           const img = new Image();
           img.onload = () => resolve([w.assetId, img]);
-          img.onerror = () => resolve([w.assetId, img]); // still resolve to not block
+          img.onerror = () => resolve([w.assetId, img]);
           img.src = asset.originalDataUrl;
         })
       );
@@ -114,17 +153,13 @@ export function SimulatorView() {
     Promise.all(imagesToLoad).then(entries => {
       const imageCache = new Map(entries);
 
-      // Create offscreen canvas to render scene
       const offscreen = document.createElement('canvas');
       offscreen.width = SCREEN_WIDTH;
       offscreen.height = SCREEN_HEIGHT;
       const ctx = offscreen.getContext('2d')!;
 
-      // Draw background
       ctx.fillStyle = backgroundColor;
       ctx.fillRect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
-
-      // Draw all widgets
       drawWidgets(ctx, widgets, imageCache);
 
       renderSceneToRgb565(offscreen, targetCanvas, backgroundColor);
@@ -138,7 +173,7 @@ export function SimulatorView() {
         ref={canvasRef}
         width={SCREEN_WIDTH}
         height={SCREEN_HEIGHT}
-        className="border-2 border-gray-600 rounded"
+        className="border-2 border-gray-600 rounded-full"
         style={{ imageRendering: 'pixelated' }}
       />
       <p className="text-xs text-gray-500">{SCREEN_WIDTH}x{SCREEN_HEIGHT} - RGB565 quantized</p>

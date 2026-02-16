@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Image, Rect } from 'react-konva';
+import { Group, Image, Rect } from 'react-konva';
 import type { ImageWidget as ImageWidgetType } from '../../types/widget';
 import { useAssetStore } from '../../store/assetStore';
 
@@ -17,7 +17,6 @@ export function ImageWidgetNode({ widget, isSelected, onSelect, onDragEnd }: Pro
 
   useEffect(() => {
     if (!dataUrl) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- Synchronizing image state with external asset data URL
       setImage(null);
       return;
     }
@@ -30,36 +29,19 @@ export function ImageWidgetNode({ widget, isSelected, onSelect, onDragEnd }: Pro
     return () => { cancelled = true; };
   }, [dataUrl]);
 
-  if (!image) {
-    return (
-      <Rect
-        id={widget.id}
-        x={widget.x}
-        y={widget.y}
-        width={widget.w}
-        height={widget.h}
-        fill="#333"
-        stroke={isSelected ? '#4A90D9' : '#666'}
-        strokeWidth={isSelected ? 2 : 1}
-        draggable
-        visible={widget.visible}
-        onClick={onSelect}
-        onTap={onSelect}
-        onDragEnd={(e) => {
-          onDragEnd(Math.round(e.target.x()), Math.round(e.target.y()));
-        }}
-      />
-    );
-  }
+  const zoomScale = widget.zoom / 256;
 
   return (
-    <Image
+    <Group
       id={widget.id}
       x={widget.x}
       y={widget.y}
       width={widget.w}
       height={widget.h}
-      image={image}
+      opacity={widget.opacity / 255}
+      rotation={widget.rotation}
+      offsetX={widget.w * widget.pivotX}
+      offsetY={widget.h * widget.pivotY}
       draggable
       visible={widget.visible}
       onClick={onSelect}
@@ -67,8 +49,44 @@ export function ImageWidgetNode({ widget, isSelected, onSelect, onDragEnd }: Pro
       onDragEnd={(e) => {
         onDragEnd(Math.round(e.target.x()), Math.round(e.target.y()));
       }}
-      stroke={isSelected ? '#4A90D9' : undefined}
-      strokeWidth={isSelected ? 2 : 0}
-    />
+    >
+      {widget.bgEnabled && (
+        <Rect
+          width={widget.w}
+          height={widget.h}
+          fill={widget.bgColor}
+          cornerRadius={widget.borderRadius}
+        />
+      )}
+      {!image ? (
+        <Rect
+          width={widget.w}
+          height={widget.h}
+          fill="#333"
+          stroke={isSelected ? '#4A90D9' : '#666'}
+          strokeWidth={isSelected ? 2 : 1}
+          cornerRadius={widget.borderRadius}
+        />
+      ) : (
+        <Image
+          width={widget.w * zoomScale}
+          height={widget.h * zoomScale}
+          offsetX={(widget.w * zoomScale - widget.w) / 2}
+          offsetY={(widget.h * zoomScale - widget.h) / 2}
+          image={image}
+          stroke={isSelected ? '#4A90D9' : undefined}
+          strokeWidth={isSelected ? 2 : 0}
+        />
+      )}
+      {widget.borderWidth > 0 && (
+        <Rect
+          width={widget.w}
+          height={widget.h}
+          stroke={widget.borderColor}
+          strokeWidth={widget.borderWidth}
+          cornerRadius={widget.borderRadius}
+        />
+      )}
+    </Group>
   );
 }
