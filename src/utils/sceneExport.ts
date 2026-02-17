@@ -49,6 +49,7 @@ export function importScene(json: string): { scene: Scene | null; errors: string
         h: w.h || 50,
         clickable: w.clickable ?? false,
         visible: w.visible ?? true,
+        animations: Array.isArray(w.animations) ? w.animations : [],
         ...w,
       })) as Widget[],
     };

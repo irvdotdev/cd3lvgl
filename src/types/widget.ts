@@ -1,3 +1,5 @@
+import type { WidgetAnimation } from './animation';
+
 export type WidgetType = 'text' | 'image' | 'gauge';
 
 export interface BaseWidget {
@@ -18,6 +20,7 @@ export interface BaseWidget {
   bgEnabled: boolean;
   padding: number;
   rotation: number;           // degrees
+  animations: WidgetAnimation[];
 }
 
 export interface TextWidget extends BaseWidget {

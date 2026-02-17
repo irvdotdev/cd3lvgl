@@ -3,6 +3,7 @@ import type { Widget } from '../../types/widget';
 import { TextProperties } from './TextProperties';
 import { ImageProperties } from './ImageProperties';
 import { GaugeProperties } from './GaugeProperties';
+import { AnimationProperties } from './AnimationProperties';
 
 const labelCls = "block text-xs text-gray-400 mb-1";
 const inputCls = "w-full bg-gray-700 text-white text-sm p-1.5 rounded border border-gray-600";
@@ -168,6 +169,11 @@ export function PropertyPanel() {
       {widget.type === 'text' && <TextProperties widget={widget} onChange={handleChange} />}
       {widget.type === 'image' && <ImageProperties widget={widget} onChange={handleChange} />}
       {widget.type === 'gauge' && <GaugeProperties widget={widget} onChange={handleChange} />}
+
+      <hr className="border-gray-700 my-4" />
+
+      {/* Animation properties */}
+      <AnimationProperties widget={widget} onChange={handleChange} />
     </div>
   );
 }

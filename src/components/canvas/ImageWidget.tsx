@@ -8,9 +8,10 @@ interface Props {
   isSelected: boolean;
   onSelect: () => void;
   onDragEnd: (x: number, y: number) => void;
+  draggable?: boolean;
 }
 
-export function ImageWidgetNode({ widget, isSelected, onSelect, onDragEnd }: Props) {
+export function ImageWidgetNode({ widget, isSelected, onSelect, onDragEnd, draggable }: Props) {
   const [image, setImage] = useState<HTMLImageElement | null>(null);
   const asset = useAssetStore(s => s.assets.find(a => a.id === widget.assetId));
   const dataUrl = asset?.originalDataUrl;
@@ -42,7 +43,7 @@ export function ImageWidgetNode({ widget, isSelected, onSelect, onDragEnd }: Pro
       rotation={widget.rotation}
       offsetX={widget.w * widget.pivotX}
       offsetY={widget.h * widget.pivotY}
-      draggable
+      draggable={draggable !== false}
       visible={widget.visible}
       onClick={onSelect}
       onTap={onSelect}

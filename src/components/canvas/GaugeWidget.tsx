@@ -6,9 +6,10 @@ interface Props {
   isSelected: boolean;
   onSelect: () => void;
   onDragEnd: (x: number, y: number) => void;
+  draggable?: boolean;
 }
 
-export function GaugeWidgetNode({ widget, isSelected, onSelect, onDragEnd }: Props) {
+export function GaugeWidgetNode({ widget, isSelected, onSelect, onDragEnd, draggable }: Props) {
   const cx = widget.w / 2;
   const cy = widget.h / 2;
   const outerRadius = Math.min(cx, cy) - 4;
@@ -53,7 +54,7 @@ export function GaugeWidgetNode({ widget, isSelected, onSelect, onDragEnd }: Pro
       height={widget.h}
       opacity={widget.opacity / 255}
       rotation={widget.rotation}
-      draggable
+      draggable={draggable !== false}
       visible={widget.visible}
       onClick={onSelect}
       onTap={onSelect}

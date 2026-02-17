@@ -6,9 +6,10 @@ interface Props {
   isSelected: boolean;
   onSelect: () => void;
   onDragEnd: (x: number, y: number) => void;
+  draggable?: boolean;
 }
 
-export function TextWidgetNode({ widget, isSelected, onSelect, onDragEnd }: Props) {
+export function TextWidgetNode({ widget, isSelected, onSelect, onDragEnd, draggable }: Props) {
   const fontStyle = [
     widget.fontWeight === 'bold' ? 'bold' : '',
   ].filter(Boolean).join(' ') || 'normal';
@@ -26,7 +27,7 @@ export function TextWidgetNode({ widget, isSelected, onSelect, onDragEnd }: Prop
       height={widget.h}
       opacity={widget.opacity / 255}
       rotation={widget.rotation}
-      draggable
+      draggable={draggable !== false}
       visible={widget.visible}
       onClick={onSelect}
       onTap={onSelect}

@@ -1,4 +1,4 @@
-import { useRef, useCallback, useState } from 'react';
+import { useRef, useCallback, useState, useEffect, useMemo } from 'react';
 import { Stage, Layer, Rect, Circle } from 'react-konva';
 import type Konva from 'konva';
 import { useSceneStore } from '../../store/sceneStore';
@@ -15,6 +15,9 @@ import { WidgetRenderer } from './WidgetRenderer';
 import { GridOverlay } from './GridOverlay';
 import { BoundaryGuard } from './BoundaryGuard';
 import { SelectionBox } from './SelectionBox';
+import { useAnimationEngine } from '../../hooks/useAnimationEngine';
+import { SimulatorControls } from '../simulator/SimulatorControls';
+import type { Widget } from '../../types/widget';
 
 /** Konva clipFunc that traces a circle */
 function circleClip(ctx: Konva.Context) {
@@ -29,12 +32,40 @@ export function EditorCanvas() {
   const backgroundColor = useSceneStore(s => s.backgroundColor);
   const showGrid = useSceneStore(s => s.showGrid);
   const snapBack = useSceneStore(s => s.snapBack);
+  const showBoundary = useSceneStore(s => s.showBoundary);
   const zoom = useSceneStore(s => s.zoom);
+  const animationMode = useSceneStore(s => s.animationMode);
   const selectWidget = useSceneStore(s => s.selectWidget);
   const updateWidget = useSceneStore(s => s.updateWidget);
 
   const stageRef = useRef<Konva.Stage>(null);
   const [selectedNode, setSelectedNode] = useState<Konva.Node | null>(null);
+  const [playing, setPlaying] = useState(false);
+
+  const { overrides, elapsed, triggerClick, reset } = useAnimationEngine({
+    widgets,
+    playing: animationMode && playing,
+  });
+
+  // Reset when animation mode turns off
+  useEffect(() => {
+    if (!animationMode) {
+      reset();
+      setPlaying(false);
+    }
+  }, [animationMode, reset]);
+
+  // Merge animation overrides into widgets
+  const effectiveWidgets = useMemo(() => {
+    if (!animationMode || overrides.size === 0) return widgets;
+    return widgets.map(w => {
+      const ov = overrides.get(w.id);
+      if (!ov) return w;
+      return { ...w, ...ov } as Widget;
+    });
+  }, [widgets, overrides, animationMode]);
+
+  const isAnimating = animationMode && playing;
 
   const handleStageClick = useCallback((e: Konva.KonvaEventObject<MouseEvent>) => {
     if (e.target === e.target.getStage() || e.target.attrs?.id === 'bg-rect') {
@@ -47,6 +78,14 @@ export function EditorCanvas() {
     selectWidget(widgetId);
     setSelectedNode(node);
   }, [selectWidget]);
+
+  const handleWidgetClick = useCallback((widgetId: string, node: Konva.Node) => {
+    if (isAnimating) {
+      triggerClick(widgetId);
+    } else {
+      handleWidgetSelect(widgetId, node);
+    }
+  }, [isAnimating, triggerClick, handleWidgetSelect]);
 
   const handleDragEnd = useCallback((widgetId: string, x: number, y: number) => {
     if (snapBack) {
@@ -80,11 +119,32 @@ export function EditorCanvas() {
     }
   }, [selectedWidgetId, updateWidget, snapBack, widgets]);
 
-  const layer0Widgets = widgets.filter(w => w.layer === 0);
-  const layer1Widgets = widgets.filter(w => w.layer === 1);
+  const handleReset = useCallback(() => {
+    setPlaying(false);
+    reset();
+  }, [reset]);
+
+  const layer0Widgets = effectiveWidgets.filter(w => w.layer === 0);
+  const layer1Widgets = effectiveWidgets.filter(w => w.layer === 1);
+
+  const renderWidgetLayer = (layerWidgets: Widget[]) =>
+    layerWidgets.map(widget => (
+      <WidgetRenderer
+        key={widget.id}
+        widget={widget}
+        isSelected={!isAnimating && selectedWidgetId === widget.id}
+        draggable={!isAnimating}
+        onSelect={() => {
+          const node = stageRef.current?.findOne(`#${CSS.escape(widget.id)}`);
+          if (node) handleWidgetClick(widget.id, node);
+          else if (!isAnimating) selectWidget(widget.id);
+        }}
+        onDragEnd={(x, y) => handleDragEnd(widget.id, x, y)}
+      />
+    ));
 
   return (
-    <div className="flex items-center justify-center flex-1 bg-gray-900 overflow-auto p-8">
+    <div className="flex flex-col items-center justify-center flex-1 bg-gray-900 overflow-auto p-8">
       <div
         style={{
           transform: `scale(${zoom})`,
@@ -112,59 +172,48 @@ export function EditorCanvas() {
 
           {/* Layer 0 - Background widgets — clipped to circle */}
           <Layer clipFunc={circleClip}>
-            {layer0Widgets.map(widget => (
-              <WidgetRenderer
-                key={widget.id}
-                widget={widget}
-                isSelected={selectedWidgetId === widget.id}
-                onSelect={() => {
-                  const node = stageRef.current?.findOne(`#${CSS.escape(widget.id)}`);
-                  if (node) handleWidgetSelect(widget.id, node);
-                  else selectWidget(widget.id);
-                }}
-                onDragEnd={(x, y) => handleDragEnd(widget.id, x, y)}
-              />
-            ))}
+            {renderWidgetLayer(layer0Widgets)}
           </Layer>
 
           {/* Layer 1 - Foreground widgets — clipped to circle */}
           <Layer clipFunc={circleClip}>
-            {layer1Widgets.map(widget => (
-              <WidgetRenderer
-                key={widget.id}
-                widget={widget}
-                isSelected={selectedWidgetId === widget.id}
-                onSelect={() => {
-                  const node = stageRef.current?.findOne(`#${CSS.escape(widget.id)}`);
-                  if (node) handleWidgetSelect(widget.id, node);
-                  else selectWidget(widget.id);
-                }}
-                onDragEnd={(x, y) => handleDragEnd(widget.id, x, y)}
-              />
-            ))}
+            {renderWidgetLayer(layer1Widgets)}
           </Layer>
 
           {/* Overlay layer for boundary warnings, selection, and circle outline */}
           <Layer>
-            {widgets.map(w => (
+            {!isAnimating && showBoundary && widgets.map(w => (
               <BoundaryGuard key={`bound-${w.id}`} widget={w} />
             ))}
-            <SelectionBox
-              selectedNode={selectedNode}
-              onTransformEnd={handleTransformEnd}
-            />
+            {!isAnimating && (
+              <SelectionBox
+                selectedNode={selectedNode}
+                onTransformEnd={handleTransformEnd}
+              />
+            )}
             {/* Circle outline */}
             <Circle
               x={SCREEN_CENTER_X}
               y={SCREEN_CENTER_Y}
               radius={SCREEN_RADIUS}
-              stroke="#555"
-              strokeWidth={2}
+              stroke={animationMode ? '#f59e0b' : '#555'}
+              strokeWidth={animationMode ? 3 : 2}
               listening={false}
             />
           </Layer>
         </Stage>
       </div>
+
+      {animationMode && (
+        <div className="mt-3">
+          <SimulatorControls
+            playing={playing}
+            elapsed={elapsed}
+            onTogglePlay={() => setPlaying(p => !p)}
+            onReset={handleReset}
+          />
+        </div>
+      )}
     </div>
   );
 }

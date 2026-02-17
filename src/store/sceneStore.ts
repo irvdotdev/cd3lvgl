@@ -9,7 +9,9 @@ interface SceneState {
   backgroundColor: string;
   showGrid: boolean;
   showSimulator: boolean;
+  animationMode: boolean;
   snapBack: boolean;
+  showBoundary: boolean;
   zoom: number;
 
   // History
@@ -27,7 +29,9 @@ interface SceneState {
 
   toggleGrid: () => void;
   toggleSimulator: () => void;
+  toggleAnimationMode: () => void;
   toggleSnapBack: () => void;
+  toggleBoundary: () => void;
   setZoom: (zoom: number) => void;
 
   undo: () => void;
@@ -41,7 +45,9 @@ export const useSceneStore = create<SceneState>((set, get) => ({
   backgroundColor: '#000000',
   showGrid: false,
   showSimulator: false,
+  animationMode: false,
   snapBack: false,
+  showBoundary: true,
   zoom: 1,
 
   history: [{ widgets: [], backgroundColor: '#000000' }],
@@ -98,8 +104,16 @@ export const useSceneStore = create<SceneState>((set, get) => ({
   },
 
   toggleGrid: () => set(s => ({ showGrid: !s.showGrid })),
-  toggleSimulator: () => set(s => ({ showSimulator: !s.showSimulator })),
+  toggleSimulator: () => set(s => ({
+    showSimulator: !s.showSimulator,
+    ...(!s.showSimulator ? { animationMode: false } : {}),
+  })),
+  toggleAnimationMode: () => set(s => ({
+    animationMode: !s.animationMode,
+    ...(!s.animationMode ? { showSimulator: false, selectedWidgetId: null } : {}),
+  })),
   toggleSnapBack: () => set(s => ({ snapBack: !s.snapBack })),
+  toggleBoundary: () => set(s => ({ showBoundary: !s.showBoundary })),
   setZoom: (zoom) => set({ zoom: Math.max(0.25, Math.min(4, zoom)) }),
 
   pushHistory: () => {

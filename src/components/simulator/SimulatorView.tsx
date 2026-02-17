@@ -1,8 +1,10 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState, useMemo, useCallback } from 'react';
 import { SCREEN_WIDTH, SCREEN_HEIGHT } from '../../constants/display';
 import { useSceneStore } from '../../store/sceneStore';
 import { useAssetStore } from '../../store/assetStore';
 import { renderSceneToRgb565 } from './Rgb565Renderer';
+import { SimulatorControls } from './SimulatorControls';
+import { useAnimationEngine } from '../../hooks/useAnimationEngine';
 import type { Widget } from '../../types/widget';
 
 function drawWidgets(
@@ -122,21 +124,44 @@ function drawWidgets(
   }
 }
 
+function isPointInWidget(px: number, py: number, widget: Widget): boolean {
+  // Transform point into widget's local space (inverse rotation around center)
+  const cx = widget.x + widget.w / 2;
+  const cy = widget.y + widget.h / 2;
+  const rad = -(widget.rotation || 0) * Math.PI / 180;
+  const cos = Math.cos(rad);
+  const sin = Math.sin(rad);
+  const dx = px - cx;
+  const dy = py - cy;
+  const localX = cos * dx - sin * dy + cx;
+  const localY = sin * dx + cos * dy + cy;
+
+  return localX >= widget.x && localX <= widget.x + widget.w &&
+         localY >= widget.y && localY <= widget.y + widget.h;
+}
+
 export function SimulatorView() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const widgets = useSceneStore(s => s.widgets);
   const backgroundColor = useSceneStore(s => s.backgroundColor);
   const assets = useAssetStore(s => s.assets);
 
-  useEffect(() => {
-    const targetCanvas = canvasRef.current;
-    if (!targetCanvas) return;
+  const [playing, setPlaying] = useState(false);
 
+  const { overrides, elapsed, triggerClick, reset } = useAnimationEngine({ widgets, playing });
+
+  // Separate image loading into its own cache ref
+  const imageCacheRef = useRef<Map<string, HTMLImageElement>>(new Map());
+
+  useEffect(() => {
     const imageWidgets = widgets.filter(w => w.type === 'image' && w.visible);
     const imagesToLoad: Promise<[string, HTMLImageElement]>[] = [];
 
     for (const w of imageWidgets) {
       if (w.type !== 'image') continue;
+      // Skip if already cached
+      if (imageCacheRef.current.has(w.assetId)) continue;
+
       const asset = assets.find(a => a.id === w.assetId);
       if (!asset?.originalDataUrl) continue;
 
@@ -150,31 +175,87 @@ export function SimulatorView() {
       );
     }
 
-    Promise.all(imagesToLoad).then(entries => {
-      const imageCache = new Map(entries);
+    if (imagesToLoad.length > 0) {
+      Promise.all(imagesToLoad).then(entries => {
+        for (const [id, img] of entries) {
+          imageCacheRef.current.set(id, img);
+        }
+      });
+    }
+  }, [widgets, assets]);
 
-      const offscreen = document.createElement('canvas');
-      offscreen.width = SCREEN_WIDTH;
-      offscreen.height = SCREEN_HEIGHT;
-      const ctx = offscreen.getContext('2d')!;
-
-      ctx.fillStyle = backgroundColor;
-      ctx.fillRect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
-      drawWidgets(ctx, widgets, imageCache);
-
-      renderSceneToRgb565(offscreen, targetCanvas, backgroundColor);
+  // Merge animation overrides into widgets
+  const effectiveWidgets = useMemo(() => {
+    if (overrides.size === 0) return widgets;
+    return widgets.map(w => {
+      const ov = overrides.get(w.id);
+      if (!ov) return w;
+      return { ...w, ...ov } as Widget;
     });
-  }, [widgets, backgroundColor, assets]);
+  }, [widgets, overrides]);
+
+  // Render effect
+  useEffect(() => {
+    const targetCanvas = canvasRef.current;
+    if (!targetCanvas) return;
+
+    const offscreen = document.createElement('canvas');
+    offscreen.width = SCREEN_WIDTH;
+    offscreen.height = SCREEN_HEIGHT;
+    const ctx = offscreen.getContext('2d')!;
+
+    ctx.fillStyle = backgroundColor;
+    ctx.fillRect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
+    drawWidgets(ctx, effectiveWidgets, imageCacheRef.current);
+
+    renderSceneToRgb565(offscreen, targetCanvas, backgroundColor);
+  }, [effectiveWidgets, backgroundColor]);
+
+  // Click handler for hit testing
+  const handleCanvasClick = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!playing) return;
+
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = SCREEN_WIDTH / rect.width;
+    const scaleY = SCREEN_HEIGHT / rect.height;
+    const px = (e.clientX - rect.left) * scaleX;
+    const py = (e.clientY - rect.top) * scaleY;
+
+    // Iterate in reverse order (top-first)
+    for (let i = effectiveWidgets.length - 1; i >= 0; i--) {
+      const widget = effectiveWidgets[i];
+      if (!widget.visible || !widget.clickable) continue;
+      if (isPointInWidget(px, py, widget)) {
+        triggerClick(widget.id);
+        break;
+      }
+    }
+  }, [playing, effectiveWidgets, triggerClick]);
+
+  const handleReset = useCallback(() => {
+    setPlaying(false);
+    reset();
+  }, [reset]);
 
   return (
     <div className="flex flex-col items-center gap-2">
       <h3 className="text-sm font-semibold text-gray-300">Simulator (RGB565)</h3>
+      <SimulatorControls
+        playing={playing}
+        elapsed={elapsed}
+        onTogglePlay={() => setPlaying(p => !p)}
+        onReset={handleReset}
+      />
       <canvas
         ref={canvasRef}
         width={SCREEN_WIDTH}
         height={SCREEN_HEIGHT}
         className="border-2 border-gray-600 rounded-full"
-        style={{ imageRendering: 'pixelated' }}
+        style={{ imageRendering: 'pixelated', cursor: playing ? 'pointer' : 'default' }}
+        onClick={handleCanvasClick}
       />
       <p className="text-xs text-gray-500">{SCREEN_WIDTH}x{SCREEN_HEIGHT} - RGB565 quantized</p>
     </div>

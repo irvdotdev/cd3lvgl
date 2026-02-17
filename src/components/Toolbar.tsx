@@ -16,8 +16,12 @@ export function Toolbar() {
   const showGrid = useSceneStore(s => s.showGrid);
   const toggleSimulator = useSceneStore(s => s.toggleSimulator);
   const showSimulator = useSceneStore(s => s.showSimulator);
+  const toggleAnimationMode = useSceneStore(s => s.toggleAnimationMode);
+  const animationMode = useSceneStore(s => s.animationMode);
   const snapBack = useSceneStore(s => s.snapBack);
   const toggleSnapBack = useSceneStore(s => s.toggleSnapBack);
+  const showBoundary = useSceneStore(s => s.showBoundary);
+  const toggleBoundary = useSceneStore(s => s.toggleBoundary);
   const zoom = useSceneStore(s => s.zoom);
   const setZoom = useSceneStore(s => s.setZoom);
   const undo = useSceneStore(s => s.undo);
@@ -37,6 +41,7 @@ export function Toolbar() {
     bgEnabled: false,
     padding: 0,
     rotation: 0,
+    animations: [],
   };
 
   const addTextWidget = () => {
@@ -189,9 +194,19 @@ export function Toolbar() {
         Simulator
       </button>
 
+      {/* Toggle Animation Mode */}
+      <button className={animationMode ? activeBtnClass : btnClass} onClick={toggleAnimationMode}>
+        Animate
+      </button>
+
       {/* Toggle Snap Back */}
       <button className={snapBack ? activeBtnClass : btnClass} onClick={toggleSnapBack}>
         Snap Back
+      </button>
+
+      {/* Toggle Boundary */}
+      <button className={showBoundary ? activeBtnClass : btnClass} onClick={toggleBoundary}>
+        Boundary
       </button>
 
       <div className="h-4 w-px bg-gray-600" />
