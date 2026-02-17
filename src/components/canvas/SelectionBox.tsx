@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Transformer } from 'react-konva';
 import type Konva from 'konva';
 interface Props {
@@ -8,6 +8,20 @@ interface Props {
 
 export function SelectionBox({ selectedNode, onTransformEnd }: Props) {
   const trRef = useRef<Konva.Transformer>(null);
+  const [shiftHeld, setShiftHeld] = useState(false);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => setShiftHeld(e.shiftKey);
+    const onBlur = () => setShiftHeld(false);
+    window.addEventListener('keydown', onKey);
+    window.addEventListener('keyup', onKey);
+    window.addEventListener('blur', onBlur);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      window.removeEventListener('keyup', onKey);
+      window.removeEventListener('blur', onBlur);
+    };
+  }, []);
 
   useEffect(() => {
     if (trRef.current && selectedNode) {
@@ -22,7 +36,7 @@ export function SelectionBox({ selectedNode, onTransformEnd }: Props) {
     <Transformer
       ref={trRef}
       rotateEnabled={true}
-      keepRatio={false}
+      keepRatio={shiftHeld}
       boundBoxFunc={(_oldBox, newBox) => {
         const box = { ...newBox };
         if (box.width < 10) box.width = 10;
