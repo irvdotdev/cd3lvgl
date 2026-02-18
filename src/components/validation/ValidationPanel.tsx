@@ -45,7 +45,7 @@ export function ValidationPanel() {
           }`}
           onClick={() => selectWidget(issue.widgetId)}
         >
-          <span className="font-mono">{issue.widgetId.slice(0, 8)}</span>: {issue.message}
+          <span className="font-mono">{issue.widgetId ? issue.widgetId.slice(0, 8) : 'Scene'}</span>: {issue.message}
         </div>
       ))}
     </div>
