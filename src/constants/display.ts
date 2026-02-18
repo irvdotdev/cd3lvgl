@@ -64,14 +64,23 @@ export function getRotatedCorners(
 }
 
 /**
+ * Get the rotation center and offset for a widget.
+ * ImageWidget stores (x,y) as the pivot position with custom pivotX/pivotY.
+ * TextWidget/GaugeWidget store (x,y) as top-left and rotate around center.
+ */
+function getWidgetPivot(widget: Widget): { cx: number; cy: number; ox: number; oy: number } {
+  if (widget.type === 'image') {
+    return { cx: widget.x, cy: widget.y, ox: widget.w * widget.pivotX, oy: widget.h * widget.pivotY };
+  }
+  return { cx: widget.x + widget.w / 2, cy: widget.y + widget.h / 2, ox: widget.w / 2, oy: widget.h / 2 };
+}
+
+/**
  * Get the world-space corners of a widget, accounting for its type-specific pivot.
- * ImageWidget rotates around (x + w*pivotX, y + h*pivotY) via Konva offset.
- * TextWidget/GaugeWidget rotate around (x, y) with no offset.
  */
 export function getWidgetCorners(widget: Widget): Point[] {
-  const offsetX = widget.type === 'image' ? widget.w * widget.pivotX : 0;
-  const offsetY = widget.type === 'image' ? widget.h * widget.pivotY : 0;
-  return getRotatedCorners(widget.x, widget.y, widget.w, widget.h, widget.rotation, offsetX, offsetY);
+  const { cx, cy, ox, oy } = getWidgetPivot(widget);
+  return getRotatedCorners(cx, cy, widget.w, widget.h, widget.rotation, ox, oy);
 }
 
 /**
@@ -120,9 +129,8 @@ export function isRectInsideDisplay(
  * accounting for rotation and type-specific pivot.
  */
 export function isWidgetInsideDisplay(widget: Widget): boolean {
-  const offsetX = widget.type === 'image' ? widget.w * widget.pivotX : 0;
-  const offsetY = widget.type === 'image' ? widget.h * widget.pivotY : 0;
-  return isRectInsideDisplay(widget.x, widget.y, widget.w, widget.h, widget.rotation, offsetX, offsetY);
+  const { cx, cy, ox, oy } = getWidgetPivot(widget);
+  return isRectInsideDisplay(cx, cy, widget.w, widget.h, widget.rotation, ox, oy);
 }
 
 /**
@@ -130,11 +138,10 @@ export function isWidgetInsideDisplay(widget: Widget): boolean {
  * Positive = inside, negative = outside.
  */
 export function widgetDistanceToEdge(widget: Widget): number {
-  const offsetX = widget.type === 'image' ? widget.w * widget.pivotX : 0;
-  const offsetY = widget.type === 'image' ? widget.h * widget.pivotY : 0;
+  const { cx, cy, ox, oy } = getWidgetPivot(widget);
   const points = getRotatedSamplePoints(
-    widget.x, widget.y, widget.w, widget.h,
-    widget.rotation, offsetX, offsetY,
+    cx, cy, widget.w, widget.h,
+    widget.rotation, ox, oy,
   );
 
   let minMargin = Infinity;
@@ -156,23 +163,21 @@ export function widgetDistanceToEdge(widget: Widget): number {
 export function clampWidgetToCircle(widget: Widget): { x: number; y: number } {
   if (isWidgetInsideDisplay(widget)) return { x: widget.x, y: widget.y };
 
-  const dx = widget.x - SCREEN_CENTER_X;
-  const dy = widget.y - SCREEN_CENTER_Y;
+  const { cx, cy, ox, oy } = getWidgetPivot(widget);
+  const dx = cx - SCREEN_CENTER_X;
+  const dy = cy - SCREEN_CENTER_Y;
   const dist = Math.sqrt(dx * dx + dy * dy);
 
   if (dist === 0) return { x: widget.x, y: widget.y };
-
-  const offsetX = widget.type === 'image' ? widget.w * widget.pivotX : 0;
-  const offsetY = widget.type === 'image' ? widget.h * widget.pivotY : 0;
 
   let lo = 0;
   let hi = dist;
   for (let i = 0; i < 20; i++) {
     const mid = (lo + hi) / 2;
     const scale = mid / dist;
-    const testX = SCREEN_CENTER_X + dx * scale;
-    const testY = SCREEN_CENTER_Y + dy * scale;
-    if (isRectInsideDisplay(testX, testY, widget.w, widget.h, widget.rotation, offsetX, offsetY)) {
+    const testCX = SCREEN_CENTER_X + dx * scale;
+    const testCY = SCREEN_CENTER_Y + dy * scale;
+    if (isRectInsideDisplay(testCX, testCY, widget.w, widget.h, widget.rotation, ox, oy)) {
       lo = mid;
     } else {
       hi = mid;
@@ -180,8 +185,12 @@ export function clampWidgetToCircle(widget: Widget): { x: number; y: number } {
   }
 
   const scale = lo / dist;
-  return {
-    x: Math.round(SCREEN_CENTER_X + dx * scale),
-    y: Math.round(SCREEN_CENTER_Y + dy * scale),
-  };
+  const clampedCX = Math.round(SCREEN_CENTER_X + dx * scale);
+  const clampedCY = Math.round(SCREEN_CENTER_Y + dy * scale);
+
+  // Convert rotation center back to store coordinates
+  if (widget.type === 'image') {
+    return { x: clampedCX, y: clampedCY };
+  }
+  return { x: clampedCX - widget.w / 2, y: clampedCY - widget.h / 2 };
 }

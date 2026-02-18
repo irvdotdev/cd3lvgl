@@ -21,8 +21,10 @@ export function TextWidgetNode({ widget, isSelected, onSelect, onDragEnd, dragga
   return (
     <Group
       id={widget.id}
-      x={widget.x}
-      y={widget.y}
+      x={widget.x + widget.w / 2}
+      y={widget.y + widget.h / 2}
+      offsetX={widget.w / 2}
+      offsetY={widget.h / 2}
       width={widget.w}
       height={widget.h}
       opacity={widget.opacity / 255}
@@ -32,7 +34,10 @@ export function TextWidgetNode({ widget, isSelected, onSelect, onDragEnd, dragga
       onClick={onSelect}
       onTap={onSelect}
       onDragEnd={(e) => {
-        onDragEnd(Math.round(e.target.x()), Math.round(e.target.y()));
+        onDragEnd(
+          Math.round(e.target.x() - widget.w / 2),
+          Math.round(e.target.y() - widget.h / 2)
+        );
       }}
     >
       {widget.bgEnabled && (

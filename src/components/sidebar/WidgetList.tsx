@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useSceneStore } from '../../store/sceneStore';
 
 export function WidgetList() {
@@ -5,6 +6,9 @@ export function WidgetList() {
   const selectedWidgetId = useSceneStore(s => s.selectedWidgetId);
   const selectWidget = useSceneStore(s => s.selectWidget);
   const reorderWidget = useSceneStore(s => s.reorderWidget);
+  const moveWidgetToLayer = useSceneStore(s => s.moveWidgetToLayer);
+
+  const [dragOverLayer, setDragOverLayer] = useState<0 | 1 | null>(null);
 
   const layer0 = widgets.filter(w => w.layer === 0);
   const layer1 = widgets.filter(w => w.layer === 1);
@@ -26,9 +30,15 @@ export function WidgetList() {
       onDragOver={(e) => e.preventDefault()}
       onDrop={(e) => {
         e.preventDefault();
+        setDragOverLayer(null);
         const draggedId = e.dataTransfer.getData('widget-id');
+        if (!draggedId) return;
+        const dragged = widgets.find(wg => wg.id === draggedId);
+        if (dragged && dragged.layer !== w.layer) {
+          moveWidgetToLayer(draggedId, w.layer);
+        }
         const targetIndex = widgets.indexOf(w);
-        if (draggedId && targetIndex >= 0) {
+        if (targetIndex >= 0) {
           reorderWidget(draggedId, targetIndex);
         }
       }}
@@ -41,6 +51,11 @@ export function WidgetList() {
     </div>
   );
 
+  const layerHeaderClass = (layer: 0 | 1) =>
+    `text-xs text-gray-500 mb-1 px-1 py-0.5 rounded transition-colors ${
+      dragOverLayer === layer ? 'bg-blue-600/30 text-blue-300' : ''
+    }`;
+
   return (
     <div className="space-y-2">
       <h4 className="text-xs text-gray-500 uppercase tracking-wide">Widgets</h4>
@@ -49,13 +64,37 @@ export function WidgetList() {
       )}
       {layer0.length > 0 && (
         <div>
-          <p className="text-xs text-gray-500 mb-1">Layer 0</p>
+          <p
+            className={layerHeaderClass(0)}
+            onDragOver={(e) => { e.preventDefault(); setDragOverLayer(0); }}
+            onDragLeave={() => setDragOverLayer(null)}
+            onDrop={(e) => {
+              e.preventDefault();
+              setDragOverLayer(null);
+              const draggedId = e.dataTransfer.getData('widget-id');
+              if (draggedId) moveWidgetToLayer(draggedId, 0);
+            }}
+          >
+            Layer 0
+          </p>
           {layer0.map(renderWidget)}
         </div>
       )}
       {layer1.length > 0 && (
         <div>
-          <p className="text-xs text-gray-500 mb-1">Layer 1</p>
+          <p
+            className={layerHeaderClass(1)}
+            onDragOver={(e) => { e.preventDefault(); setDragOverLayer(1); }}
+            onDragLeave={() => setDragOverLayer(null)}
+            onDrop={(e) => {
+              e.preventDefault();
+              setDragOverLayer(null);
+              const draggedId = e.dataTransfer.getData('widget-id');
+              if (draggedId) moveWidgetToLayer(draggedId, 1);
+            }}
+          >
+            Layer 1
+          </p>
           {layer1.map(renderWidget)}
         </div>
       )}

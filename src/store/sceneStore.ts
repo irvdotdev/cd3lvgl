@@ -24,6 +24,10 @@ interface SceneState {
   removeWidget: (id: string) => void;
   selectWidget: (id: string | null) => void;
   reorderWidget: (id: string, newIndex: number) => void;
+  duplicateWidget: (id: string) => void;
+  moveWidgetToLayer: (id: string, layer: 0 | 1) => void;
+  bringToFront: (id: string) => void;
+  sendToBack: (id: string) => void;
   setBackgroundColor: (color: string) => void;
   setWidgets: (widgets: Widget[]) => void;
 
@@ -88,6 +92,49 @@ export const useSceneStore = create<SceneState>((set, get) => ({
     if (oldIndex === -1) return;
     const [widget] = widgets.splice(oldIndex, 1);
     widgets.splice(newIndex, 0, widget);
+    set({ widgets });
+  },
+
+  duplicateWidget: (id) => {
+    const state = get();
+    const widget = state.widgets.find(w => w.id === id);
+    if (!widget) return;
+    state.pushHistory();
+    const clone = { ...JSON.parse(JSON.stringify(widget)), id: crypto.randomUUID(), x: widget.x + 10, y: widget.y + 10 } as Widget;
+    set({ widgets: [...state.widgets, clone], selectedWidgetId: clone.id });
+  },
+
+  moveWidgetToLayer: (id, layer) => {
+    const state = get();
+    const widget = state.widgets.find(w => w.id === id);
+    if (!widget || widget.layer === layer) return;
+    state.pushHistory();
+    set({
+      widgets: state.widgets.map(w =>
+        w.id === id ? { ...w, layer } as Widget : w
+      ),
+    });
+  },
+
+  bringToFront: (id) => {
+    const state = get();
+    const idx = state.widgets.findIndex(w => w.id === id);
+    if (idx === -1 || idx === state.widgets.length - 1) return;
+    state.pushHistory();
+    const widgets = [...state.widgets];
+    const [widget] = widgets.splice(idx, 1);
+    widgets.push(widget);
+    set({ widgets });
+  },
+
+  sendToBack: (id) => {
+    const state = get();
+    const idx = state.widgets.findIndex(w => w.id === id);
+    if (idx <= 0) return;
+    state.pushHistory();
+    const widgets = [...state.widgets];
+    const [widget] = widgets.splice(idx, 1);
+    widgets.unshift(widget);
     set({ widgets });
   },
 

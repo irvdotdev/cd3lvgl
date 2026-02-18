@@ -1,10 +1,10 @@
 import { useRef } from 'react';
 import { useSceneStore } from '../store/sceneStore';
-import type { TextWidget, ImageWidget, GaugeWidget } from '../types/widget';
 import { exportScene, importScene, downloadJson } from '../utils/sceneExport';
 import { hasErrors } from '../utils/validation';
 import { validateScene } from '../utils/validation';
 import { SCREEN_WIDTH, SCREEN_HEIGHT } from '../constants/display';
+import { createTextWidget, createImageWidget, createGaugeWidget } from '../utils/widgetFactory';
 
 export function Toolbar() {
   const addWidget = useSceneStore(s => s.addWidget);
@@ -29,102 +29,9 @@ export function Toolbar() {
 
   const importInputRef = useRef<HTMLInputElement>(null);
 
-  const baseDefaults = {
-    layer: 1 as const,
-    clickable: false,
-    visible: true,
-    opacity: 255,
-    borderWidth: 0,
-    borderColor: '#ffffff',
-    borderRadius: 0,
-    bgColor: '#000000',
-    bgEnabled: false,
-    padding: 0,
-    rotation: 0,
-    animations: [],
-  };
-
-  const addTextWidget = () => {
-    const widget: TextWidget = {
-      id: crypto.randomUUID(),
-      type: 'text',
-      ...baseDefaults,
-      x: 75,
-      y: 150,
-      w: 200,
-      h: 40,
-      content: 'Hello',
-      fontSize: 16,
-      fontColor: '#ffffff',
-      align: 'center',
-      verticalAlign: 'middle',
-      fontFamily: 'sans-serif',
-      fontWeight: 'normal',
-      letterSpacing: 0,
-      lineSpacing: 0,
-      textDecoration: 'none',
-      longMode: 'wrap',
-    };
-    addWidget(widget);
-  };
-
-  const addImageWidget = () => {
-    const widget: ImageWidget = {
-      id: crypto.randomUUID(),
-      type: 'image',
-      ...baseDefaults,
-      x: 125,
-      y: 125,
-      w: 100,
-      h: 100,
-      assetId: '',
-      imagePath: '',
-      pivotX: 0.5,
-      pivotY: 0.5,
-      zoom: 256,
-      antialias: true,
-    };
-    addWidget(widget);
-  };
-
-  const addGaugeWidget = () => {
-    const widget: GaugeWidget = {
-      id: crypto.randomUUID(),
-      type: 'gauge',
-      ...baseDefaults,
-      x: 115,
-      y: 115,
-      w: 120,
-      h: 120,
-      minValue: 0,
-      maxValue: 100,
-      currentValue: 50,
-      startAngle: -135,
-      endAngle: 135,
-      showArc: true,
-      arcColor: '#00aaff',
-      arcBgColor: '#333333',
-      arcWidth: 12,
-      arcRounded: false,
-      showNeedle: true,
-      needleColor: '#ff0000',
-      needleWidth: 2,
-      needleLength: 85,
-      showNeedleDot: true,
-      needleDotRadius: 4,
-      showTicks: false,
-      tickCount: 11,
-      tickLength: 8,
-      tickWidth: 1,
-      tickColor: '#ffffff',
-      showLabels: false,
-      labelCount: 5,
-      labelFontSize: 10,
-      labelColor: '#ffffff',
-      labelOffset: 15,
-    };
-    addWidget(widget);
-  };
+  const addTextWidget = () => addWidget(createTextWidget());
+  const addImageWidget = () => addWidget(createImageWidget());
+  const addGaugeWidget = () => addWidget(createGaugeWidget());
 
   const handleExport = () => {
     const scene = {
