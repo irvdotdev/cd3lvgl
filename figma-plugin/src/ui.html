@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: Inter, -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 12px;
+    color: #e0e0e0;
+    background: #2c2c2c;
+    padding: 16px;
+    line-height: 1.5;
+  }
+  h2 { font-size: 14px; font-weight: 600; margin-bottom: 12px; }
+
+  /* Error banner */
+  .error-banner {
+    display: none;
+    background: #5c2020;
+    border: 1px solid #a04040;
+    border-radius: 6px;
+    padding: 12px;
+    margin-bottom: 12px;
+    color: #ffaaaa;
+    font-size: 12px;
+  }
+  .error-banner.visible { display: block; }
+
+  /* Stats grid */
+  .stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+  .stat {
+    background: #383838;
+    border-radius: 6px;
+    padding: 10px;
+    text-align: center;
+  }
+  .stat-value {
+    font-size: 20px;
+    font-weight: 700;
+    color: #ffffff;
+    display: block;
+  }
+  .stat-label {
+    font-size: 10px;
+    color: #999;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  /* Warnings */
+  .warnings {
+    display: none;
+    background: #3a3520;
+    border: 1px solid #665c20;
+    border-radius: 6px;
+    padding: 10px;
+    margin-bottom: 12px;
+    max-height: 120px;
+    overflow-y: auto;
+  }
+  .warnings.visible { display: block; }
+  .warnings-title {
+    font-size: 11px;
+    font-weight: 600;
+    color: #e8c840;
+    margin-bottom: 6px;
+  }
+  .warnings ul {
+    list-style: none;
+    padding: 0;
+  }
+  .warnings li {
+    font-size: 11px;
+    color: #d4b830;
+    padding: 2px 0;
+    border-bottom: 1px solid #504a20;
+  }
+  .warnings li:last-child { border-bottom: none; }
+
+  /* Buttons */
+  .actions { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
+  button {
+    border: none;
+    border-radius: 6px;
+    padding: 10px 16px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+  .btn-primary {
+    background: #4a9eff;
+    color: #ffffff;
+  }
+  .btn-primary:hover:not(:disabled) { background: #3a8eef; }
+  .btn-secondary {
+    background: #505050;
+    color: #e0e0e0;
+  }
+  .btn-secondary:hover:not(:disabled) { background: #606060; }
+
+  /* Footer */
+  .footer {
+    border-top: 1px solid #444;
+    padding-top: 12px;
+    color: #888;
+    font-size: 11px;
+  }
+  .footer strong { color: #aaa; }
+  .footer ol {
+    margin: 6px 0 0 16px;
+  }
+  .footer li { margin-bottom: 4px; }
+</style>
+</head>
+<body>
+  <h2>cd3lvgl Export</h2>
+
+  <div id="error" class="error-banner"></div>
+
+  <div class="stats">
+    <div class="stat">
+      <span class="stat-value" id="textCount">-</span>
+      <span class="stat-label">Text Widgets</span>
+    </div>
+    <div class="stat">
+      <span class="stat-value" id="imageCount">-</span>
+      <span class="stat-label">Image Widgets</span>
+    </div>
+    <div class="stat">
+      <span class="stat-value" id="skippedCount">-</span>
+      <span class="stat-label">Skipped</span>
+    </div>
+    <div class="stat">
+      <span class="stat-value" id="scaleFactor">-</span>
+      <span class="stat-label">Scale Factor</span>
+    </div>
+  </div>
+
+  <div id="warnings" class="warnings">
+    <div class="warnings-title">Warnings</div>
+    <ul id="warningsList"></ul>
+  </div>
+
+  <div class="actions">
+    <button id="btnJSON" class="btn-primary" disabled>Download Scene JSON</button>
+    <button id="btnImages" class="btn-secondary" disabled>Export Images as PNG</button>
+  </div>
+
+  <div class="footer">
+    <strong>How to use:</strong>
+    <ol>
+      <li>Select a single frame in Figma</li>
+      <li>Review the export preview above</li>
+      <li>Click <strong>Download Scene JSON</strong></li>
+      <li>In cd3lvgl editor, use <strong>Import Scene</strong> to load the JSON</li>
+      <li>If there are image placeholders, click <strong>Export Images</strong> and import them via the asset pipeline</li>
+    </ol>
+  </div>
+
+<script>
+  const errorEl = document.getElementById('error');
+  const warningsEl = document.getElementById('warnings');
+  const warningsListEl = document.getElementById('warningsList');
+  const btnJSON = document.getElementById('btnJSON');
+  const btnImages = document.getElementById('btnImages');
+
+  let hasImageWidgets = false;
+
+  // Message from plugin sandbox
+  window.onmessage = function(event) {
+    const msg = event.data.pluginMessage;
+    if (!msg) return;
+
+    if (msg.type === 'error') {
+      showError(msg.message);
+    } else if (msg.type === 'preview') {
+      hideError();
+      document.getElementById('textCount').textContent = msg.textCount;
+      document.getElementById('imageCount').textContent = msg.imageCount;
+      document.getElementById('skippedCount').textContent = msg.skippedCount;
+      document.getElementById('scaleFactor').textContent = msg.scaleFactor + 'x';
+
+      hasImageWidgets = msg.imageCount > 0;
+      btnJSON.disabled = false;
+      btnImages.disabled = !hasImageWidgets;
+
+      // Warnings
+      if (msg.warnings && msg.warnings.length > 0) {
+        warningsListEl.innerHTML = '';
+        var shown = msg.warnings.slice(0, 20);
+        for (var i = 0; i < shown.length; i++) {
+          var li = document.createElement('li');
+          li.textContent = shown[i];
+          warningsListEl.appendChild(li);
+        }
+        if (msg.warnings.length > 20) {
+          var li = document.createElement('li');
+          li.textContent = '... and ' + (msg.warnings.length - 20) + ' more';
+          warningsListEl.appendChild(li);
+        }
+        warningsEl.classList.add('visible');
+      } else {
+        warningsEl.classList.remove('visible');
+      }
+    } else if (msg.type === 'download-json') {
+      downloadBlob(msg.json, msg.filename, 'application/json');
+    } else if (msg.type === 'download-image') {
+      var bytes = new Uint8Array(msg.bytes);
+      var blob = new Blob([bytes], { type: 'image/png' });
+      downloadBlobObj(blob, msg.filename);
+    } else if (msg.type === 'export-images-done') {
+      btnImages.disabled = !hasImageWidgets;
+      btnImages.textContent = 'Export Images as PNG';
+    }
+  };
+
+  btnJSON.onclick = function() {
+    parent.postMessage({ pluginMessage: { type: 'export-json' } }, '*');
+  };
+
+  btnImages.onclick = function() {
+    btnImages.disabled = true;
+    btnImages.textContent = 'Exporting...';
+    parent.postMessage({ pluginMessage: { type: 'export-images' } }, '*');
+  };
+
+  function showError(message) {
+    errorEl.textContent = message;
+    errorEl.classList.add('visible');
+    btnJSON.disabled = true;
+    btnImages.disabled = true;
+    warningsEl.classList.remove('visible');
+    document.getElementById('textCount').textContent = '-';
+    document.getElementById('imageCount').textContent = '-';
+    document.getElementById('skippedCount').textContent = '-';
+    document.getElementById('scaleFactor').textContent = '-';
+  }
+
+  function hideError() {
+    errorEl.classList.remove('visible');
+  }
+
+  function downloadBlob(content, filename, mime) {
+    var blob = new Blob([content], { type: mime });
+    downloadBlobObj(blob, filename);
+  }
+
+  function downloadBlobObj(blob, filename) {
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+</script>
+</body>
+</html>
