@@ -1,10 +1,12 @@
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import { useSceneStore } from '../store/sceneStore';
 import { exportScene, importScene, downloadJson } from '../utils/sceneExport';
 import { hasErrors } from '../utils/validation';
 import { validateScene } from '../utils/validation';
 import { SCREEN_WIDTH, SCREEN_HEIGHT } from '../constants/display';
 import { createTextWidget, createImageWidget, createGaugeWidget } from '../utils/widgetFactory';
+import { AiGenerateModal } from './AiGenerateModal';
+import type { Scene } from '../types/widget';
 
 export function Toolbar() {
   const addWidget = useSceneStore(s => s.addWidget);
@@ -28,6 +30,12 @@ export function Toolbar() {
   const redo = useSceneStore(s => s.redo);
 
   const importInputRef = useRef<HTMLInputElement>(null);
+  const [showAiModal, setShowAiModal] = useState(false);
+
+  const handleAiApply = (scene: Scene) => {
+    setWidgets(scene.widgets);
+    setBackgroundColor(scene.backgroundColor);
+  };
 
   const addTextWidget = () => addWidget(createTextWidget());
   const addImageWidget = () => addWidget(createImageWidget());
@@ -126,6 +134,14 @@ export function Toolbar() {
 
       <div className="flex-1" />
 
+      {/* AI Generate */}
+      <button
+        className="px-3 py-1.5 text-xs rounded bg-purple-600 hover:bg-purple-500 text-white transition-colors"
+        onClick={() => setShowAiModal(true)}
+      >
+        AI Generate
+      </button>
+
       {/* Export/Import */}
       <button className={btnClass} onClick={handleExport}>Export JSON</button>
       <button className={btnClass} onClick={() => importInputRef.current?.click()}>Import JSON</button>
@@ -136,6 +152,13 @@ export function Toolbar() {
         className="hidden"
         onChange={handleImport}
       />
+
+      {showAiModal && (
+        <AiGenerateModal
+          onClose={() => setShowAiModal(false)}
+          onApply={handleAiApply}
+        />
+      )}
     </div>
   );
 }
