@@ -166,6 +166,33 @@ describe('TextWidget schema', () => {
   });
 });
 
+// ── Edge-case validation ────────────────────────────────────────────────────
+
+describe('Edge-case widgets', () => {
+  it('TextWidget with bgEnabled=false and empty content is valid', () => {
+    const widget = makeSampleTextWidget({ bgEnabled: false, content: '' });
+    expect(widget.bgEnabled).toBe(false);
+    expect(widget.content).toBe('');
+    expect(widget.type).toBe('text');
+    // All required fields should still be present
+    const requiredFields = [
+      'id', 'type', 'x', 'y', 'w', 'h',
+      'content', 'fontSize', 'fontColor', 'align', 'verticalAlign',
+      'fontWeight', 'fontFamily', 'opacity',
+      'bgEnabled', 'bgColor',
+      'borderWidth', 'borderColor', 'borderRadius',
+      'padding', 'animations',
+    ];
+    for (const field of requiredFields) {
+      expect(widget, `missing field: ${field}`).toHaveProperty(field);
+    }
+    // Colors should still be valid
+    expect(widget.fontColor).toMatch(/^#[0-9A-F]{6}$/);
+    expect(widget.bgColor).toMatch(/^#[0-9A-F]{6}$/);
+    expect(widget.borderColor).toMatch(/^#[0-9A-F]{6}$/);
+  });
+});
+
 // ── ImageWidget validation ──────────────────────────────────────────────────
 
 describe('ImageWidget schema', () => {

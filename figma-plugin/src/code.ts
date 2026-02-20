@@ -265,8 +265,21 @@ function mapTextNode(node: TextNode, ctx: ScaleContext): WidgetResult | null {
   // Font color
   let fontColor = '#FFFFFF';
   const fills = node.fills;
-  if (Array.isArray(fills) && fills.length > 0 && fills[0].type === 'SOLID') {
-    fontColor = rgbaToHex(fills[0].color);
+  if (Array.isArray(fills) && fills.length > 0) {
+    const solidFill = (fills as Paint[]).find(
+      (f) => f.visible !== false && f.type === 'SOLID'
+    );
+    if (solidFill && solidFill.type === 'SOLID') {
+      fontColor = rgbaToHex(solidFill.color);
+    } else {
+      // Warn about gradient fills that cannot be represented
+      const gradientFill = (fills as Paint[]).find(
+        (f) => f.visible !== false && f.type.endsWith('_GRADIENT')
+      );
+      if (gradientFill) {
+        warnings.push(`"${truncate(node.characters, 20)}": gradient font fill (${gradientFill.type}) not supported, using default #FFFFFF`);
+      }
+    }
   }
 
   // Alignment
@@ -362,6 +375,14 @@ function mapRectangleNode(
     if (solidFill && solidFill.type === 'SOLID') {
       bgColor = rgbaToHex(solidFill.color);
       bgEnabled = true;
+    } else {
+      // Warn about gradient fills that cannot be represented
+      const gradientFill = (fills as Paint[]).find(
+        (f) => f.visible !== false && f.type.endsWith('_GRADIENT')
+      );
+      if (gradientFill) {
+        warnings.push(`"${node.name}": gradient fill (${gradientFill.type}) not supported, using bgEnabled=false`);
+      }
     }
   }
 
@@ -458,6 +479,14 @@ function mapEllipseNode(node: EllipseNode, ctx: ScaleContext): WidgetResult | nu
     if (solidFill && solidFill.type === 'SOLID') {
       bgColor = rgbaToHex(solidFill.color);
       bgEnabled = true;
+    } else {
+      // Warn about gradient fills that cannot be represented
+      const gradientFill = (fills as Paint[]).find(
+        (f) => f.visible !== false && f.type.endsWith('_GRADIENT')
+      );
+      if (gradientFill) {
+        warnings.push(`"${node.name}": gradient fill (${gradientFill.type}) not supported, using bgEnabled=false`);
+      }
     }
   }
 
