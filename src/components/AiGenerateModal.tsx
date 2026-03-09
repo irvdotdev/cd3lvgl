@@ -70,13 +70,20 @@ export function AiGenerateModal({ onClose, onApply }: Props) {
       localStorage.removeItem(LS_KEY);
     }
 
+    const allowedMediaTypes = ['image/png', 'image/jpeg', 'image/webp', 'image/gif'] as const;
+    type AllowedMediaType = typeof allowedMediaTypes[number];
+    if (!allowedMediaTypes.includes(imageData.mediaType as AllowedMediaType)) {
+      setState({ step: 'error', message: `Unsupported image type: ${imageData.mediaType}` });
+      return;
+    }
+
     setState({ step: 'generating' });
 
     try {
       const { scene, widgetCount } = await generateSceneFromImage(
         apiKey.trim(),
         imageData.base64,
-        imageData.mediaType as 'image/png' | 'image/jpeg' | 'image/webp' | 'image/gif',
+        imageData.mediaType as AllowedMediaType,
         { name: imageData.name.replace(/\.\w+$/, '') },
       );
       setState({ step: 'result', scene, widgetCount });
@@ -142,6 +149,11 @@ export function AiGenerateModal({ onClose, onApply }: Props) {
               />
               Remember key in browser
             </label>
+            {remember && (
+              <p className="mt-1 text-xs text-yellow-600">
+                Warning: API keys stored in the browser can be exposed by browser extensions or XSS attacks.
+              </p>
+            )}
           </div>
 
           {/* Image Picker */}

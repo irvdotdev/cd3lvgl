@@ -155,7 +155,18 @@ export function SimulatorView() {
 
   useEffect(() => {
     const imageWidgets = widgets.filter(w => w.type === 'image' && w.visible);
-    const imagesToLoad: Promise<[string, HTMLImageElement]>[] = [];
+
+    // Evict cache entries for assets that are no longer referenced
+    const activeAssetIds = new Set(
+      imageWidgets.map(w => w.type === 'image' ? w.assetId : '').filter(Boolean)
+    );
+    for (const key of imageCacheRef.current.keys()) {
+      if (!activeAssetIds.has(key)) {
+        imageCacheRef.current.delete(key);
+      }
+    }
+
+    const imagesToLoad: Promise<[string, HTMLImageElement] | null>[] = [];
 
     for (const w of imageWidgets) {
       if (w.type !== 'image') continue;
@@ -166,10 +177,10 @@ export function SimulatorView() {
       if (!asset?.originalDataUrl) continue;
 
       imagesToLoad.push(
-        new Promise<[string, HTMLImageElement]>((resolve) => {
+        new Promise<[string, HTMLImageElement] | null>((resolve) => {
           const img = new Image();
           img.onload = () => resolve([w.assetId, img]);
-          img.onerror = () => resolve([w.assetId, img]);
+          img.onerror = () => resolve(null);
           img.src = asset.originalDataUrl;
         })
       );
@@ -177,8 +188,11 @@ export function SimulatorView() {
 
     if (imagesToLoad.length > 0) {
       Promise.all(imagesToLoad).then(entries => {
-        for (const [id, img] of entries) {
-          imageCacheRef.current.set(id, img);
+        for (const entry of entries) {
+          if (entry) {
+            const [id, img] = entry;
+            imageCacheRef.current.set(id, img);
+          }
         }
       });
     }

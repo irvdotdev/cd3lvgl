@@ -2,6 +2,9 @@ import { rgbToRgb565 } from './rgb565';
 
 export function encodeRgb565Bmp(imageData: ImageData): Blob {
   const { width, height, data } = imageData;
+  if (data.length < width * height * 4) {
+    throw new Error(`ImageData buffer too small: expected ${width * height * 4} bytes, got ${data.length}`);
+  }
   const rowSize = width * 2;
   const paddedRowSize = Math.ceil(rowSize / 4) * 4;
   const pixelDataSize = paddedRowSize * height;

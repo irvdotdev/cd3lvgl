@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import type { Widget } from '../../types/widget';
 import type { WidgetAnimation, AnimatableProperty, AnimationPath, AnimationTrigger } from '../../types/animation';
 import { getTemplatesForType } from '../../constants/animationTemplates';
@@ -17,6 +18,7 @@ interface AnimationPropertiesProps {
 
 export function AnimationProperties({ widget, onChange }: AnimationPropertiesProps) {
   const animations = widget.animations || [];
+  const [selectedTemplate, setSelectedTemplate] = useState('');
 
   const updateAnimation = (index: number, changes: Partial<WidgetAnimation>) => {
     const updated = animations.map((a, i) => i === index ? { ...a, ...changes } : a);
@@ -51,12 +53,12 @@ export function AnimationProperties({ widget, onChange }: AnimationPropertiesPro
 
   const handleTemplateSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const idx = Number(e.target.value);
+    setSelectedTemplate('');
     if (isNaN(idx) || idx < 0) return;
     const template = templates[idx];
     if (!template) return;
     const newAnim = template.create(widget);
     onChange({ animations: [...animations, newAnim] });
-    e.target.value = '';
   };
 
   return (
@@ -73,7 +75,7 @@ export function AnimationProperties({ widget, onChange }: AnimationPropertiesPro
 
       <select
         className={inputCls + ' mb-2'}
-        defaultValue=""
+        value={selectedTemplate}
         onChange={handleTemplateSelect}
       >
         <option value="" disabled>Apply template...</option>

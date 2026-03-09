@@ -2,7 +2,7 @@
 // NOTE: The SYSTEM_PROMPT is duplicated from scripts/image-to-scene.mjs.
 // If the prompt needs updating, change both places.
 
-import type { Scene, Widget } from '../types/widget';
+import type { Scene } from '../types/widget';
 
 // ---------------------------------------------------------------------------
 // System prompt (verbatim copy from scripts/image-to-scene.mjs)
@@ -84,7 +84,7 @@ interface PostProcessOpts {
 }
 
 export function postProcessScene(scene: Record<string, unknown>, opts: PostProcessOpts = {}): Scene {
-  const s = scene as Record<string, unknown>;
+  const s: Record<string, unknown> = JSON.parse(JSON.stringify(scene));
 
   s.name = s.name || opts.name || 'Untitled';
   s.screenWidth = 350;

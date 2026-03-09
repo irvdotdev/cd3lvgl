@@ -52,7 +52,7 @@ export const useAssetStore = create<AssetState>((set, get) => ({
       set(s => ({
         assets: s.assets.map(a =>
           a.id === id
-            ? { ...a, status: 'error' as const, errorMessage: (e as Error).message }
+            ? { ...a, status: 'error' as const, errorMessage: e instanceof Error ? e.message : String(e) }
             : a
         ),
       }));

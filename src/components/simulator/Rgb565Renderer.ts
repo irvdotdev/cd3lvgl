@@ -21,7 +21,8 @@ export function renderSceneToRgb565(
   const bgCanvas = document.createElement('canvas');
   bgCanvas.width = 1;
   bgCanvas.height = 1;
-  const bgCtx = bgCanvas.getContext('2d')!;
+  const bgCtx = bgCanvas.getContext('2d');
+  if (!bgCtx) return;
   bgCtx.fillStyle = backgroundColor;
   bgCtx.fillRect(0, 0, 1, 1);
   const bgPixel = bgCtx.getImageData(0, 0, 1, 1).data;

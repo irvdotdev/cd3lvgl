@@ -26,6 +26,9 @@ export function ImageWidgetNode({ widget, isSelected, onSelect, onDragEnd, dragg
     img.onload = () => {
       if (!cancelled) setImage(img);
     };
+    img.onerror = () => {
+      if (!cancelled) setImage(null);
+    };
     img.src = dataUrl;
     return () => { cancelled = true; };
   }, [dataUrl]);

@@ -56,15 +56,25 @@ function issue(
 }
 
 // ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function buildDuplicateIds(widgets: Widget[]): Set<string> {
+  const counts = new Map<string, number>();
+  for (const w of widgets) counts.set(w.id, (counts.get(w.id) ?? 0) + 1);
+  return new Set([...counts.entries()].filter(([, c]) => c > 1).map(([id]) => id));
+}
+
+// ---------------------------------------------------------------------------
 // A: Base Widget checks (all types) — 16 rules
 // ---------------------------------------------------------------------------
 
-function validateBaseWidget(w: Widget, allWidgets: Widget[]): ValidationIssue[] {
+function validateBaseWidget(w: Widget, duplicateIds: Set<string>): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
   const id = w.id;
 
   // A1 — Duplicate widget ID
-  if (allWidgets.filter(o => o.id === id).length > 1) {
+  if (duplicateIds.has(id)) {
     issues.push(issue(id, 'id', 'Duplicate widget ID', 'error'));
   }
 
@@ -419,14 +429,14 @@ function validateAnimation(
 }
 
 // ---------------------------------------------------------------------------
-// Per-widget validation (public — unchanged signature)
+// Per-widget validation (internal — accepts pre-built duplicate set)
 // ---------------------------------------------------------------------------
 
-export function validateWidget(widget: Widget, allWidgets: Widget[]): ValidationIssue[] {
+function validateWidgetInternal(widget: Widget, duplicateIds: Set<string>): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
 
   // A: base checks
-  issues.push(...validateBaseWidget(widget, allWidgets));
+  issues.push(...validateBaseWidget(widget, duplicateIds));
 
   // Type-specific checks
   switch (widget.type) {
@@ -447,6 +457,14 @@ export function validateWidget(widget: Widget, allWidgets: Widget[]): Validation
   }
 
   return issues;
+}
+
+// ---------------------------------------------------------------------------
+// Per-widget validation (public — unchanged signature)
+// ---------------------------------------------------------------------------
+
+export function validateWidget(widget: Widget, allWidgets: Widget[]): ValidationIssue[] {
+  return validateWidgetInternal(widget, buildDuplicateIds(allWidgets));
 }
 
 // ---------------------------------------------------------------------------
@@ -490,9 +508,12 @@ export function validateScene(scene: Scene): ValidationIssue[] {
   // Scene-level checks
   issues.push(...validateSceneLevel(scene));
 
+  // Pre-compute duplicate IDs once for all widgets (O(n) instead of O(n²))
+  const duplicateIds = buildDuplicateIds(scene.widgets);
+
   // Per-widget checks
   for (const widget of scene.widgets) {
-    issues.push(...validateWidget(widget, scene.widgets));
+    issues.push(...validateWidgetInternal(widget, duplicateIds));
   }
 
   return issues;

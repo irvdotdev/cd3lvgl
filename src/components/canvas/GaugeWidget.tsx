@@ -45,6 +45,19 @@ export function GaugeWidgetNode({ widget, isSelected, onSelect, onDragEnd, dragg
     }
   }
 
+  // Pre-compute which tick indices should display labels
+  const labelIndices = new Set<number>();
+  if (widget.showLabels && ticks.length > 0) {
+    if (widget.labelCount <= 1) {
+      labelIndices.add(0);
+    } else {
+      for (let li = 0; li < widget.labelCount; li++) {
+        const idx = Math.round(li * (ticks.length - 1) / (widget.labelCount - 1));
+        labelIndices.add(Math.min(idx, ticks.length - 1));
+      }
+    }
+  }
+
   return (
     <Group
       id={widget.id}
@@ -104,11 +117,7 @@ export function GaugeWidgetNode({ widget, isSelected, onSelect, onDragEnd, dragg
       ))}
       {/* Labels */}
       {widget.showLabels && ticks.map((tick, i) => {
-        // Only show labels at evenly distributed positions
-        const labelStep = widget.labelCount > 1
-          ? Math.max(1, Math.floor((widget.showTicks ? widget.tickCount : widget.labelCount) / (widget.labelCount - 1)))
-          : ticks.length;
-        if (i % labelStep !== 0 && i !== ticks.length - 1) return null;
+        if (!labelIndices.has(i)) return null;
         const angleR = (tick.angle * Math.PI) / 180;
         const lx = cx + Math.cos(angleR) * (outerRadius + widget.labelOffset + widget.tickLength);
         const ly = cy + Math.sin(angleR) * (outerRadius + widget.labelOffset + widget.tickLength);
